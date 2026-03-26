@@ -19,7 +19,7 @@ foreach (string k in values.Keys)
 // step two - a dictionary from a text file 
 // if the JSON isn't just as simple as string-string we can parse it with the JObject.Parse method 
 // and convert with the ToObject types 
-JObject o1 = JObject.Parse(File.ReadAllText(@"data.json"));
+JObject o1 = JObject.Parse(File.ReadAllText("/Users/alexwan/Projects/introduction-to-json-Smalltalk1357/JsonIntroduction.app/data.json"));
 Debug.Assert("json" == o1["name"].ToObject<string>());
 Debug.Assert(o1["entry"].ToObject<bool>());
 Debug.Assert(7 == o1["value"].ToObject<int>());
