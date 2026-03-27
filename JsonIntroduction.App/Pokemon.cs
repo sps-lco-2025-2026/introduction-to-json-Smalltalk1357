@@ -11,18 +11,17 @@ namespace JsonIntroduction.App
                 jsonDownload = client.GetStringAsync("https://pokeapi.co/api/v2/pokemon-species/25/").Result;
             
             JObject o = JObject.Parse(jsonDownload);
-
+            
             foreach (KeyValuePair<string, JToken?> item in o)
             {
                 if (item.Key != "flavor_text_entries" || item.Key != "names")
                 {
                     if (item.Value!.Type == JTokenType.Array)
                     {
-                        Console.WriteLine(item.Key.Replace('_', ' ') + ": ");
+                        string output = item.Key.Replace('_', ' ') + ": ";
                         foreach (JToken jt in item.Value)
-                        {
-                            Console.WriteLine(jt);
-                        }
+                            output += jt.First!.First! + ", ";
+                        Console.WriteLine(output.TrimEnd(", "));
                     }
                     else if (item.Value.Type == JTokenType.Object)
                     {
