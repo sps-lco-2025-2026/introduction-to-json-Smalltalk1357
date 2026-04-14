@@ -6,36 +6,46 @@ namespace JsonIntroduction.App
     {
         public static void Run()
         {
+            string index = GetIndex();
+            string url = $"https://pokeapi.co/api/v2/pokemon/{index}/";
+            
             string jsonDownload;
             using (HttpClient client = new())
-                jsonDownload = client.GetStringAsync("https://pokeapi.co/api/v2/pokemon-species/25/").Result;
-            
+                jsonDownload = client.GetStringAsync(url).Result;
             JObject o = JObject.Parse(jsonDownload);
+            
+            Dictionary<string, JToken?> attributes = new();
+            Dictionary<string, JToken?> lists = new();
+            string[] wantedAttributes = ["name", "id", "height", "weight"];
+            string[] wantedLists = ["stats", "moves", "abilities"];
             
             foreach (KeyValuePair<string, JToken?> item in o)
             {
-                if (item.Key != "flavor_text_entries" || item.Key != "names")
+                if (wantedAttributes.Contains(item.Key))
+                    attributes[item.Key] = item.Value;
+                if (wantedLists.Contains(item.Key))
+                    lists[item.Key] = item.Value;
+            }
+
+            foreach (KeyValuePair<string, JToken?> item in attributes)
+            {
+                Console.WriteLine($"{item.Key}: {item.Value}");
+            }
+            
+        }
+
+        private static string GetIndex()
+        {
+            while (true)
+            {
+                Console.Write("Enter pokemon number: ");
+                string input = Console.ReadLine()!;
+                if (int.TryParse(input, out int index))
                 {
-                    if (item.Value!.Type == JTokenType.Array)
-                    {
-                        string output = item.Key.Replace('_', ' ') + ": ";
-                        foreach (JToken jt in item.Value)
-                            output += jt.First!.First! + ", ";
-                        Console.WriteLine(output.TrimEnd(", "));
-                    }
-                    else if (item.Value.Type == JTokenType.Object)
-                    {
-                        // Console.WriteLine(item.Key.Replace('_', ' ') + ": ");
-                        // foreach (KeyValuePair<string, JToken> kvp in item.Value)
-                        // {
-                        //     Console.WriteLine(kvp.Value);
-                        // }
-                    }
-                    else
-                    {
-                        Console.WriteLine(item.Key.Replace('_', ' ') + ": " + item.Value);
-                    }
+                    if (index is > 0 and < 1026)
+                        return input;
                 }
+                Console.WriteLine("Invalid input\n\n");
             }
         }
     }
