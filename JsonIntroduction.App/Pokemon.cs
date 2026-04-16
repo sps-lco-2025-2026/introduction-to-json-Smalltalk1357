@@ -6,67 +6,69 @@ namespace JsonIntroduction.App
     {
         public static void Run()
         {
-            string index = GetIndex();
-            (Dictionary<string, string> attributes, Dictionary<string, JToken?> lists) = GetFormattedJson(index);
+            int index = GetIndex();
+            JObject jsonObject = GetJsonObject($"pokemon/{index}");
             
-            attributes["name"] = Capitalise(attributes["name"]);
-            Console.WriteLine($"\n---------- Pokemon #{index}: {attributes["name"]} ----------");
-            Console.WriteLine($"Height: {attributes["height"]}");
-            Console.WriteLine($"Weight: {attributes["weight"]}");
+            Console.Clear();
             
-            Console.WriteLine("\nStatistics:");
-            List<Tuple<string, string>> stat = UnpackStats(lists["abilities"]);
-            for (int i = 0; i < stat.Count; i++)
+            string name = Capitalise(jsonObject["name"]!.ToString());
+            Console.WriteLine($"---------- Pokemon #{index}: {name} ----------");
+            Console.WriteLine($"Height: {jsonObject["height"]}");
+            Console.WriteLine($"Weight: {jsonObject["weight"]}");
+            
+            Console.WriteLine("\nMain Stats:");
+            List<int> stats = UnpackStats(jsonObject["stats"]);
+            string[] statName = ["HP", "Attack", "Defense", "Special Attack", "Special Defense", "Speed"];
+            for (int i = 0; i < stats.Count; i++)
             {
-                Console.WriteLine($"{stat[i].Item1}: {stat[i].Item2}");
+                // maximum stat = 255, scales chart down to 30 chars
+                int stat = stats[i];
+                Console.WriteLine($"{statName[i], 15}|{string.Concat(Enumerable.Repeat("▋", 30 * stat / 255)), -30}|{stat}");
             }
+            Console.WriteLine(string.Concat(Enumerable.Repeat("-", 50)));
+            int total = stats.Sum();
+            Console.WriteLine($"{"Total", 15}|{string.Concat(Enumerable.Repeat("▋", 30 * total / 800)), -30}|{total}");
             
             Console.WriteLine("\nAbilities:");
-            List<Tuple<string, string>> abilities = UnpackAbilities(lists["abilities"]);
+            List<Tuple<string, string>> abilities = UnpackAbilities(jsonObject["abilities"]);
             for (int i = 0; i < abilities.Count; i++)
             {
                 Console.WriteLine($"{i+1}: {abilities[i].Item1} (Slots: {abilities[i].Item2})");
             }
         }
 
-        private static Tuple<Dictionary<string, string>, Dictionary<string, JToken?>> GetFormattedJson(string index)
+        private static JObject GetJsonObject(string url)
         {
-            string url = $"https://pokeapi.co/api/v2/pokemon/{index}/";
+            url = $"https://pokeapi.co/api/v2/{url}";
 
             string jsonDownload;
             using (HttpClient client = new())
                 jsonDownload = client.GetStringAsync(url).Result;
             JObject o = JObject.Parse(jsonDownload);
-            
-            Dictionary<string, string> attributes = new();
-            Dictionary<string, JToken?> lists = new();
-            string[] wantedAttributes = ["name", "height", "weight"];
-            string[] wantedLists = ["stats", "moves", "abilities", "types"];
-            
-            foreach (KeyValuePair<string, JToken?> item in o)
-            {
-                if (wantedAttributes.Contains(item.Key))
-                    attributes[item.Key] = item.Value!.ToString();
-                if (wantedLists.Contains(item.Key))
-                    lists[item.Key] = item.Value;
-            }
-            
-            return new Tuple<Dictionary<string, string>, Dictionary<string, JToken?>>(attributes, lists);
+
+            return o;
         }
 
-        private static string GetIndex()
+        private static int GetIndex()
         {
+            JObject o = GetJsonObject("pokemon?limit=1&offset=0");
+            int count = (int)o["count"]!;
+            
+            Console.WriteLine($"Current total number of pokemon: {count}");
+            
             Console.Write("Enter pokemon number (Return for random): ");
             string input = Console.ReadLine()!;
-            if (int.TryParse(input, out int index))
+            int index = 0;
+            if (int.TryParse(input, out index))
             {
-                if (index is > 0 and <= 1350)
-                    return input;
+                if (index > 0 && index <= count)
+                    return index;
             }
+            
             Random r = new();
-            input = r.Next(1, 1026).ToString();
-            Console.WriteLine($"Choosing random pokemon number: {input}");
-            return input;
+            index = r.Next(0, count) + 1;
+            Console.WriteLine($"Choosing random pokemon number: {index}");
+            return index;
         }
         
         // To unpack the lists of a Pokémon's stats requires knowledge of how the JSON is structured
@@ -85,16 +87,14 @@ namespace JsonIntroduction.App
             return output;
         }
 
-        private static List<Tuple<string, string>> UnpackStats(JToken? lists)
+        private static List<int> UnpackStats(JToken? lists)
         {
-            List<Tuple<string, string>> output = new();
+            List<int> output = new();
             
             foreach (JToken temp in lists!)
             {
-                string stat = temp["stat"]!["name"]!.ToString();
-                string baseStat = temp["base_stat"]!.ToString();
-                
-                output.Add(new(Capitalise(stat), baseStat));
+                int baseStat = (int)temp["base_stat"]!;
+                output.Add(baseStat);
             }
             
             return output;
