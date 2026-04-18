@@ -1,3 +1,4 @@
+using System.Net.ServerSentEvents;
 using Newtonsoft.Json.Linq;
 
 namespace JsonIntroduction.App
@@ -6,7 +7,7 @@ namespace JsonIntroduction.App
     {
         public static void Run()
         {
-            int index = GetIndex();
+            (int index, bool random) = GetIndex();
             JObject jsonObject = GetJsonObject($"pokemon/{index}");
             
             Console.Clear();
@@ -15,6 +16,7 @@ namespace JsonIntroduction.App
             Console.WriteLine($"---------- Pokemon #{index}: {name} ----------");
             Console.WriteLine($"Height: {jsonObject["height"]}");
             Console.WriteLine($"Weight: {jsonObject["weight"]}");
+            Console.WriteLine($"Type: {string.Join(", ", UnpackTypes(jsonObject["types"]))}");
             
             Console.WriteLine("\nMain Stats:");
             List<int> stats = UnpackStats(jsonObject["stats"]);
@@ -35,6 +37,11 @@ namespace JsonIntroduction.App
             {
                 Console.WriteLine($"{i+1}: {abilities[i].Item1} (Slots: {abilities[i].Item2})");
             }
+
+            if (random)
+            {
+                Console.WriteLine("\nRandomly selected Pokemon. If not correct pokemon, check spelling/ID");
+            }
         }
 
         private static JObject GetJsonObject(string url)
@@ -49,26 +56,35 @@ namespace JsonIntroduction.App
             return o;
         }
 
-        private static int GetIndex()
+        private static (int, bool) GetIndex()
         {
-            JObject o = GetJsonObject("pokemon?limit=1&offset=0");
+            JObject o = GetJsonObject("pokemon-species?limit=10000&offset=0");
             int count = (int)o["count"]!;
-            
+
+            List<string> species = File.Exists("Species.txt") ? File.ReadAllLines("Species.txt").ToList() : [];
+            if (species.Count != count || species.Count == 0)
+            {
+                species.AddRange(o["results"]!.Select(token => (string)token["name"]!));
+                File.WriteAllLines("Species.txt", species);
+            }
+
             Console.WriteLine($"Current total number of pokemon: {count}");
+            Console.Write("Enter pokemon name or ID (enter for random): ");
             
-            Console.Write("Enter pokemon number (Return for random): ");
-            string input = Console.ReadLine()!;
-            int index = 0;
-            if (int.TryParse(input, out index))
+            string input = Console.ReadLine()!.ToLower();
+            if (int.TryParse(input, out int index))
             {
                 if (index > 0 && index <= count)
-                    return index;
+                    return (index, false);
             }
-            
+            if (species.Contains(input))
+            {
+                index = species.IndexOf(input) + 1;
+                return (index, false);
+            }
             Random r = new();
             index = r.Next(0, count) + 1;
-            Console.WriteLine($"Choosing random pokemon number: {index}");
-            return index;
+            return (index, false);
         }
         
         // To unpack the lists of a Pokémon's stats requires knowledge of how the JSON is structured
@@ -97,6 +113,19 @@ namespace JsonIntroduction.App
                 output.Add(baseStat);
             }
             
+            return output;
+        }
+
+        private static List<string> UnpackTypes(JToken? lists)
+        {
+            List<string> output = new();
+
+            foreach (JToken temp in lists!)
+            {
+                string type = temp["type"]!["name"]!.ToString();
+                output.Add(Capitalise(type));
+            }
+
             return output;
         }
         
